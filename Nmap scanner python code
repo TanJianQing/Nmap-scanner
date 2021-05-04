@@ -1,0 +1,224 @@
+# Import necessary modules
+import pyshark, time
+from datetime import datetime
+
+# List for storing ip addresses, source ports, destination ports, and timestamp
+src_addr_list = []
+src_port_list = []
+dst_port_list = []
+timestamp_list = []
+
+# Dictionary for storing ip addresses and the number of times they send TCP requests
+src_addr_dict = {}
+src_port_dict = {}
+dst_port_dict = {}
+
+def header(text):
+    """
+    Used to make different sections look nice when printed out
+    """
+    print('-'*50)
+    print(text)
+    print('-'*50)
+
+def results(packet):
+    """
+    Prints out results from the scan
+    """
+    # Prints out Source IP addresses, Source Ports, and Destination Ports
+    print('Source IP addresses:')
+    for i in src_addr_dict:
+        print(f'{i}: {src_addr_dict[i]} packets')
+
+    print('\nSource Ports:')
+    for i in src_port_dict:
+        print(f'{i}: {src_port_dict[i]} instances')
+
+    print('\nDestination Ports:')
+    for i in dst_port_dict:
+        print(f'{i}: {dst_port_dict[i]} instances')
+
+def warning_live():
+    """
+    Used to warn the user of possible port scans by other devices for live captures
+    """
+    header('Message:')
+
+    # Printing warning messages for each IP address found
+    try:
+        for i in src_addr_dict:
+            # Scanning of multiple destination ports by source IP
+            if len(dst_port_dict) > 20:
+                print(f'Suspicious. Multiple ports ({len(dst_port_dict)}) are being scanned by {i}!')
+            # Source IP using various source ports for port scanning
+            if len(src_port_dict) > 10:
+                print(f'Suspicious. Multiple ports ({len(dst_port_dict)}) are being used for port scanning by {i}!')
+            # No suspicious activity found
+            else:
+                print(f'No issues found for {i}.')
+
+    except IndexError:
+        pass
+
+def warning_pcap():
+    """
+    Used to warn the user of possible port scans by other devices for pcap captures
+    """
+    header('Message:')
+
+    # Printing warning messages for each IP address found
+    try:
+        average_time = (float(timestamp_list[-1]) - float(timestamp_list[0])) / len(timestamp_list)
+        if average_time<0.004:
+            print(f'Suspicious. The average time difference between each packet sent is shorter than typical!')
+
+        for i in src_addr_dict:
+            # Scanning of multiple destination ports by source IP
+            if len(dst_port_dict)>100:
+                print(f'Suspicious. Multiple ports ({len(dst_port_dict)}) are being scanned by {i}!')
+            # Source IP using various source ports for port scanning
+            if len(src_port_dict)>50:
+                print(f'Suspicious. Multiple ports ({len(dst_port_dict)}) are being used for port scanning by {i}!')
+            # No suspicious activity found
+            elif len(dst_port_dict)<100 and len(src_port_dict)<50:
+                print(f'No issues found for {i}.')
+
+    except IndexError:
+        pass
+
+def live_capture():
+    """
+    Used for live capture
+    """
+    print('Scanning for suspicious activity...')
+
+    capture = pyshark.LiveCapture(display_filter='tcp.flags.ack==0')
+    while True:
+        for packet in capture.sniff_continuously(packet_count=5):
+            protocol = packet.transport_layer
+
+            # Source address and port
+            src_addr = packet.ip.src
+            src_port = packet[protocol].srcport
+
+            # Destination address and port
+            dst_addr = packet.ip.dst
+            dst_port = packet[protocol].dstport
+
+            # Timestamp
+            timestamp = float(packet.sniff_timestamp)
+
+            # Appending information to lists
+            src_addr_list.append(src_addr)
+            src_port_list.append(src_port)
+            dst_port_list.append(dst_port)
+            timestamp_list.append(timestamp)
+
+            # Transferring information to dictionaries
+            for i in src_addr_list:
+                src_addr_dict[i] = src_addr_list.count(i)
+            for i in src_port_list:
+                src_port_dict[i] = src_port_list.count(i)
+            for i in dst_port_list:
+                dst_port_dict[i] = dst_port_list.count(i)
+
+            # Prints out timestamp for each packet
+            timestamp = float(packet.sniff_timestamp)
+            header(datetime.fromtimestamp(timestamp).time())
+
+            # Prints out results for each packet
+            results(packet)
+
+            # Prints out warnings if any
+            warning_live()
+
+def pcap_capture():
+    """
+    Used for capturing data from a PCAP file
+    """
+    print('Scanning for suspicious activity...')
+
+    # Open the pcap file, filtered by tcp without including acks
+    file_to_read = r'C:\Users\Tan Jian Qing_Work\Downloads\Telegram Desktop\nmap\nmap\nmap_sS.pcapng'
+    capture = pyshark.FileCapture(file_to_read, display_filter='tcp.flags.ack==0')
+
+    # Prints out packets in the pcap file
+    for packet in capture:
+        protocol = packet.transport_layer
+
+        # Source address and port
+        src_addr = packet.ip.src
+        src_port = packet[protocol].srcport
+
+        # Destination address and port
+        dst_addr = packet.ip.dst
+        dst_port = packet[protocol].dstport
+
+        # Timestamp
+        timestamp = float(packet.sniff_timestamp)
+
+        # Appending information to lists
+        src_addr_list.append(src_addr)
+        src_port_list.append(src_port)
+        dst_port_list.append(dst_port)
+        timestamp_list.append(timestamp)
+
+        # Transferring information to dictionaries
+        for i in src_addr_list:
+            src_addr_dict[i] = src_addr_list.count(i)
+        for i in src_port_list:
+            src_port_dict[i] = src_port_list.count(i)
+        for i in dst_port_list:
+            dst_port_dict[i] = dst_port_list.count(i)
+    capture.close()
+
+    # Complete scan, proceed to print results
+    print('Scan complete!')
+    header('Results:')
+    results(packet)
+
+def main():
+    """
+    The main function that is being run when the program is started.
+    """
+    # Introduction
+    print('Welcome to Port Scan Detector!\n')
+
+    # Loops the program if user decides to rescan
+    loop_main=1
+    while loop_main==1:
+        print('Avaliable modes:')
+        print('1. Live Capture')
+        print('2. Capture from PCAP file')
+
+        # Loop for selection of scan to conduct
+        selection_loop=1
+        while selection_loop==1:
+            selection=input('Please choose the mode you want to scan in:')
+            if selection=='1':
+                selection_loop=0
+                live_capture()
+            elif selection=='2':
+                selection_loop=0
+                pcap_capture()
+                warning_pcap()
+            else:
+                print('Please only type 1 or 2!')
+
+        # Loop for whether the user wants to run the program again
+        again_loop = 1
+        loop_main = 0
+        while again_loop == 1:
+            again = input('Would you like to scan again? (Y/N)')
+            if again == 'Y':
+                again_loop=0
+                loop_main=1
+            elif again == 'N':
+                again_loop=0
+                loop_main=0
+                print('Bye!')
+            else:
+                print('Please only type Y or N!')
+
+if __name__=='__main__':
+    main()
