@@ -5,3 +5,6 @@ The Nmap scanner will show the Source IP addresses (IP address of the external p
 Parameters can be adjusted to your own preference. To use this in real time, just keep it continuously running, and any suspicious behaviour will be printed out in real time. Otherwise, you can load a .pcapng file into this scanner by adjusting the file_to_read variable to the file's directory.
 
 Give it a try!
+
+
+Made by Tan Jian Qing, credits to pyshark.py for their functions.
